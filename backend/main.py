@@ -32,6 +32,7 @@ import time
 import random
 from datetime import datetime
 from app.utils.indicators import get_indicators
+import uvicorn
 
 # Set up logging with more detailed format
 logging.basicConfig(
@@ -436,5 +437,4 @@ async def get_stock_indicators(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 
