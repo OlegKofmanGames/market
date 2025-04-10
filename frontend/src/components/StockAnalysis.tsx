@@ -4,7 +4,6 @@ import {
   TextField,
   Paper,
   Typography,
-  Grid,
   CircularProgress,
   Alert,
   Container,
@@ -14,15 +13,21 @@ import {
   alpha,
   Fade,
   Zoom,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  SelectChangeEvent,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { Data } from 'plotly.js';
-import { GridProps } from '@mui/material/Grid';
 import Logo from './Logo';
+import type { Config, ModeBarDefaultButtons } from 'plotly.js';
 
+// Types
 interface StockData {
   dates: string[];
   prices: number[];
@@ -43,42 +48,82 @@ interface StockData {
   };
 }
 
+interface TimePeriod {
+  value: string;
+  label: string;
+}
+
+// Constants
+const TIME_PERIODS: TimePeriod[] = [
+  { value: '1d', label: '1 Day' },
+  { value: '5d', label: '5 Days' },
+  { value: '1mo', label: '1 Month' },
+  { value: '3mo', label: '3 Months' },
+  { value: '6mo', label: '6 Months' },
+  { value: '1y', label: '1 Year' },
+  { value: '2y', label: '2 Years' },
+  { value: '5y', label: '5 Years' },
+  { value: '10y', label: '10 Years' },
+  { value: 'ytd', label: 'Year to Date' },
+  { value: 'max', label: 'Maximum' },
+];
+
+const API_BASE_URL = 'http://localhost:8000';
+
+// Component
 const StockAnalysis = () => {
   const theme = useTheme();
   const [symbol, setSymbol] = useState('');
   const [stockData, setStockData] = useState<StockData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [timePeriod, setTimePeriod] = useState('1y');
 
-  const fetchStockData = async (symbol: string) => {
+  // Fetch stock data from API
+  const fetchStockData = async (stockSymbol: string) => {
     try {
       setLoading(true);
       setError('');
       setStockData(null); // Clear previous data
-      console.log('Fetching data for symbol:', symbol);
-      const response = await axios.get(`http://localhost:8000/analysis/${symbol}`);
-      console.log('API Response:', response.data);
+      console.log(`[StockAnalysis] Fetching data for symbol: ${stockSymbol} with period: ${timePeriod}`);
       
-      if (response.data && response.data.dates && response.data.dates.length > 0) {
-        // Ensure all required fields are present
-        const data = {
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      const response = await axios.get(`${API_BASE_URL}/analysis/${stockSymbol}?period=${timePeriod}&_=${timestamp}`);
+      console.log('[StockAnalysis] API Response:', response.data);
+      
+      if (response.data && Array.isArray(response.data.dates) && response.data.dates.length > 0) {
+        // Format dates based on time period
+        const formattedData = {
           ...response.data,
+          dates: response.data.dates.map((date: string) => {
+            const d = new Date(date);
+            // For 1-day period, show time; otherwise show date
+            if (timePeriod === '1d') {
+              return d.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
+              });
+            }
+            return d.toISOString().split('T')[0];
+          }),
           levels: {
             support: response.data.levels?.support || [],
             resistance: response.data.levels?.resistance || []
           }
         };
-        console.log('Processed data:', data);
-        setStockData(data);
+        console.log('[StockAnalysis] Processed data:', formattedData);
+        setStockData(formattedData);
       } else {
-        console.error('Invalid data structure:', response.data);
+        console.error('[StockAnalysis] Invalid data structure:', response.data);
         setError('No data available for this symbol');
       }
     } catch (err) {
-      console.error('Error fetching stock data:', err);
+      console.error('[StockAnalysis] Error fetching stock data:', err);
       if (axios.isAxiosError(err)) {
         const errorMessage = err.response?.data?.detail || 'Error fetching stock data. Please try again.';
-        console.error('API Error:', errorMessage);
+        console.error('[StockAnalysis] API Error:', errorMessage);
         setError(errorMessage);
       } else {
         setError('An unexpected error occurred. Please try again.');
@@ -88,17 +133,29 @@ const StockAnalysis = () => {
     }
   };
 
+  // Handle search input
   const handleSearch = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' && symbol.trim()) {
       fetchStockData(symbol.trim().toUpperCase());
     }
   };
 
-  const renderChart = () => {
+  // Handle time period change
+  const handleTimePeriodChange = (event: SelectChangeEvent<string>) => {
+    const newPeriod = event.target.value;
+    console.log('[StockAnalysis] Changing time period to:', newPeriod);
+    setTimePeriod(newPeriod);
+    if (symbol.trim()) {
+      fetchStockData(symbol.trim().toUpperCase());
+    }
+  };
+
+  // Render main price chart
+  const renderPriceChart = () => {
     if (!stockData) return null;
     
     try {
-      console.log('Rendering chart with data:', stockData);
+      console.log('[StockAnalysis] Rendering price chart with data:', stockData);
       const traces: Data[] = [
         {
           name: 'Price',
@@ -109,7 +166,7 @@ const StockAnalysis = () => {
           line: { 
             color: theme.palette.primary.main,
             width: 2,
-            shape: 'spline',
+            shape: timePeriod === '1d' ? 'linear' : 'spline',
           },
         },
         {
@@ -122,7 +179,7 @@ const StockAnalysis = () => {
             color: theme.palette.secondary.main,
             dash: 'dash',
             width: 1.5,
-            shape: 'spline',
+            shape: timePeriod === '1d' ? 'linear' : 'spline',
           },
         },
         {
@@ -135,7 +192,7 @@ const StockAnalysis = () => {
             color: '#4caf50',
             dash: 'dot',
             width: 1.5,
-            shape: 'spline',
+            shape: timePeriod === '1d' ? 'linear' : 'spline',
           },
         },
         {
@@ -213,7 +270,7 @@ const StockAnalysis = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2 }}>
               <ShowChartIcon sx={{ fontSize: 32, color: theme.palette.primary.main }} />
               <Typography variant="h5" sx={{ fontWeight: 600, background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                {symbol} Price Analysis
+                {symbol} Price Analysis {timePeriod === '1d' ? '(Intraday)' : ''}
               </Typography>
             </Box>
             <Plot
@@ -230,6 +287,8 @@ const StockAnalysis = () => {
                   gridcolor: alpha(theme.palette.common.white, 0.1),
                   zerolinecolor: alpha(theme.palette.common.white, 0.2),
                   tickfont: { size: 11 },
+                  tickangle: timePeriod === '1d' ? 45 : 0,
+                  nticks: timePeriod === '1d' ? 8 : undefined,
                 },
                 yaxis: {
                   gridcolor: alpha(theme.palette.common.white, 0.1),
@@ -252,21 +311,90 @@ const StockAnalysis = () => {
         </Zoom>
       );
     } catch (err) {
-      console.error('Error rendering chart:', err);
+      console.error('[StockAnalysis] Error rendering price chart:', err);
       return (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Error rendering chart. Please try again.
+          Error rendering price chart. Please try again.
         </Alert>
       );
     }
   };
 
-  const renderIndicators = () => {
+  // Render technical indicators
+  const renderTechnicalIndicators = () => {
     if (!stockData) return null;
 
+    const commonPlotLayout = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      font: { 
+        color: theme.palette.text.primary,
+        family: theme.typography.fontFamily,
+        size: 12,
+      },
+      xaxis: { 
+        gridcolor: alpha(theme.palette.common.white, 0.1),
+        zerolinecolor: alpha(theme.palette.common.white, 0.2),
+        tickfont: { size: 11 },
+        tickangle: timePeriod === '1d' ? 45 : 0,
+        nticks: timePeriod === '1d' ? 8 : undefined,
+        rangeslider: { visible: true },
+        showspikes: true,
+        spikemode: 'across+marker' as const,
+        spikesnap: 'cursor' as const,
+        showline: true,
+        showgrid: true,
+        spikecolor: theme.palette.primary.main,
+        spikethickness: 1,
+      },
+      yaxis: { 
+        gridcolor: alpha(theme.palette.common.white, 0.1),
+        zerolinecolor: alpha(theme.palette.common.white, 0.2),
+        tickfont: { size: 11 },
+        showspikes: true,
+        spikemode: 'across+marker' as const,
+        spikesnap: 'cursor' as const,
+        showline: true,
+        showgrid: true,
+        spikecolor: theme.palette.primary.main,
+        spikethickness: 1,
+      },
+      margin: { t: 30, r: 20, b: 40, l: 60 },
+      hovermode: 'x unified' as const,
+      hoverlabel: {
+        bgcolor: alpha(theme.palette.background.paper, 0.9),
+        bordercolor: theme.palette.primary.main,
+        font: { size: 12, color: theme.palette.text.primary },
+      },
+      showlegend: true,
+      legend: {
+        x: 0,
+        y: 1.1,
+        orientation: 'h' as const,
+        bgcolor: 'rgba(0,0,0,0)',
+        font: { size: 11 },
+      },
+    } as const;
+
+    const IMAGE_FORMAT = 'png' as const;
+
+    const toImageOptions = {
+      format: IMAGE_FORMAT,
+      filename: `${symbol}_${timePeriod}`,
+    } as const;
+
+    const commonConfig: Partial<Config> = {
+      displayModeBar: true,
+      displaylogo: false,
+      scrollZoom: true,
+      modeBarButtonsToAdd: ['zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'resetScale2d'] as ModeBarDefaultButtons[],
+      modeBarButtonsToRemove: ['lasso2d', 'select2d', 'autoScale2d'] as ModeBarDefaultButtons[],
+      toImageButtonOptions: toImageOptions,
+    } as const;
+
     return (
-      <Grid container spacing={4}>
-        <Grid {...({ item: true, xs: 12, md: 6 } as GridProps)}>
+      <Box display="flex" flexWrap="wrap" sx={{ mx: -2 }}>
+        <Box flex={{ xs: '0 0 100%', md: '0 0 50%' }} sx={{ p: 2 }}>
           <Zoom in={true} timeout={800} style={{ transitionDelay: '200ms' }}>
             <Paper 
               elevation={6}
@@ -284,9 +412,14 @@ const StockAnalysis = () => {
                 },
               }}
             >
-              <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                Relative Strength Index (RSI)
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  Relative Strength Index (RSI)
+                </Typography>
+                <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
+                  {timePeriod === '1d' ? 'Intraday' : 'Daily'} RSI
+                </Typography>
+              </Box>
               <Plot
                 data={[
                   {
@@ -294,32 +427,38 @@ const StockAnalysis = () => {
                     y: stockData.indicators.RSI,
                     type: 'scatter',
                     mode: 'lines',
+                    name: 'RSI',
                     line: { 
                       color: theme.palette.primary.main,
                       width: 2,
-                      shape: 'spline',
+                      shape: timePeriod === '1d' ? 'linear' : 'spline',
                     },
+                    hovertemplate: 'RSI: %{y:.2f}<extra></extra>',
                   },
                 ]}
                 layout={{
-                  paper_bgcolor: 'rgba(0,0,0,0)',
-                  plot_bgcolor: 'rgba(0,0,0,0)',
-                  font: { 
-                    color: theme.palette.text.primary,
-                    family: theme.typography.fontFamily,
-                    size: 12,
-                  },
-                  xaxis: { 
-                    gridcolor: alpha(theme.palette.common.white, 0.1),
-                    zerolinecolor: alpha(theme.palette.common.white, 0.2),
-                    tickfont: { size: 11 },
-                  },
-                  yaxis: { 
-                    gridcolor: alpha(theme.palette.common.white, 0.1),
-                    zerolinecolor: alpha(theme.palette.common.white, 0.2),
-                    tickfont: { size: 11 },
-                  },
+                  ...commonPlotLayout,
                   shapes: [
+                    {
+                      type: 'rect',
+                      x0: stockData.dates[0],
+                      x1: stockData.dates[stockData.dates.length - 1],
+                      y0: 70,
+                      y1: 100,
+                      fillcolor: alpha(theme.palette.error.main, 0.1),
+                      line: { width: 0 },
+                      layer: 'below',
+                    },
+                    {
+                      type: 'rect',
+                      x0: stockData.dates[0],
+                      x1: stockData.dates[stockData.dates.length - 1],
+                      y0: 0,
+                      y1: 30,
+                      fillcolor: alpha(theme.palette.success.main, 0.1),
+                      line: { width: 0 },
+                      layer: 'below',
+                    },
                     {
                       type: 'line',
                       y0: 70,
@@ -337,15 +476,44 @@ const StockAnalysis = () => {
                       line: { color: theme.palette.success.main, dash: 'dash', width: 1 },
                     },
                   ],
-                  margin: { t: 20, r: 20, b: 40, l: 60 },
+                  annotations: [
+                    {
+                      x: stockData.dates[0],
+                      y: 70,
+                      xref: 'x',
+                      yref: 'y',
+                      text: 'Overbought',
+                      showarrow: false,
+                      font: { size: 10, color: theme.palette.error.main },
+                      xanchor: 'left',
+                      yanchor: 'bottom',
+                    },
+                    {
+                      x: stockData.dates[0],
+                      y: 30,
+                      xref: 'x',
+                      yref: 'y',
+                      text: 'Oversold',
+                      showarrow: false,
+                      font: { size: 10, color: theme.palette.success.main },
+                      xanchor: 'left',
+                      yanchor: 'top',
+                    },
+                  ],
+                  yaxis: {
+                    ...commonPlotLayout.yaxis,
+                    range: [0, 100],
+                    tickformat: '.0f',
+                  },
                 }}
                 style={{ width: '100%', height: '300px' }}
                 useResizeHandler={true}
+                config={commonConfig}
               />
             </Paper>
           </Zoom>
-        </Grid>
-        <Grid {...({ item: true, xs: 12, md: 6 } as GridProps)}>
+        </Box>
+        <Box flex={{ xs: '0 0 100%', md: '0 0 50%' }} sx={{ p: 2 }}>
           <Zoom in={true} timeout={800} style={{ transitionDelay: '400ms' }}>
             <Paper 
               elevation={6}
@@ -363,9 +531,14 @@ const StockAnalysis = () => {
                 },
               }}
             >
-              <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                Moving Average Convergence Divergence (MACD)
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  MACD
+                </Typography>
+                <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
+                  {timePeriod === '1d' ? 'Intraday' : 'Daily'} MACD (12,26,9)
+                </Typography>
+              </Box>
               <Plot
                 data={[
                   {
@@ -377,8 +550,9 @@ const StockAnalysis = () => {
                     line: { 
                       color: theme.palette.primary.main,
                       width: 2,
-                      shape: 'spline',
+                      shape: timePeriod === '1d' ? 'linear' : 'spline',
                     },
+                    hovertemplate: 'MACD: %{y:.4f}<extra></extra>',
                   },
                   {
                     x: stockData.dates,
@@ -389,37 +563,42 @@ const StockAnalysis = () => {
                     line: { 
                       color: theme.palette.secondary.main,
                       width: 2,
-                      shape: 'spline',
+                      shape: timePeriod === '1d' ? 'linear' : 'spline',
                     },
+                    hovertemplate: 'Signal: %{y:.4f}<extra></extra>',
+                  },
+                  {
+                    x: stockData.dates,
+                    y: stockData.indicators.MACD.map((macd, i) => macd - stockData.indicators.MACD_Signal[i]),
+                    type: 'bar',
+                    name: 'Histogram',
+                    marker: {
+                      color: stockData.indicators.MACD.map((macd, i) => 
+                        macd >= stockData.indicators.MACD_Signal[i] 
+                          ? alpha(theme.palette.success.main, 0.6)
+                          : alpha(theme.palette.error.main, 0.6)
+                      ),
+                    },
+                    hovertemplate: 'Histogram: %{y:.4f}<extra></extra>',
                   },
                 ]}
                 layout={{
-                  paper_bgcolor: 'rgba(0,0,0,0)',
-                  plot_bgcolor: 'rgba(0,0,0,0)',
-                  font: { 
-                    color: theme.palette.text.primary,
-                    family: theme.typography.fontFamily,
-                    size: 12,
+                  ...commonPlotLayout,
+                  barmode: 'relative',
+                  bargap: 0,
+                  yaxis: {
+                    ...commonPlotLayout.yaxis,
+                    tickformat: '.4f',
                   },
-                  xaxis: { 
-                    gridcolor: alpha(theme.palette.common.white, 0.1),
-                    zerolinecolor: alpha(theme.palette.common.white, 0.2),
-                    tickfont: { size: 11 },
-                  },
-                  yaxis: { 
-                    gridcolor: alpha(theme.palette.common.white, 0.1),
-                    zerolinecolor: alpha(theme.palette.common.white, 0.2),
-                    tickfont: { size: 11 },
-                  },
-                  margin: { t: 20, r: 20, b: 40, l: 60 },
                 }}
                 style={{ width: '100%', height: '300px' }}
                 useResizeHandler={true}
+                config={commonConfig}
               />
             </Paper>
           </Zoom>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     );
   };
 
@@ -454,55 +633,89 @@ const StockAnalysis = () => {
               },
             }}
           >
-            <TextField
-              fullWidth
-              label="Enter Stock Symbol"
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-              onKeyPress={handleSearch}
-              disabled={loading}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="primary" />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => symbol.trim() && fetchStockData(symbol.trim().toUpperCase())}
-                      disabled={loading || !symbol.trim()}
-                      color="primary"
-                      sx={{
-                        transition: 'all 0.2s ease-in-out',
-                        '&:hover': {
-                          transform: 'scale(1.1)',
-                          backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                        },
-                      }}
-                    >
-                      <SearchIcon />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  transition: 'all 0.2s ease-in-out',
-                  '&:hover fieldset': {
-                    borderColor: theme.palette.primary.main,
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderWidth: 2,
-                    borderColor: theme.palette.primary.main,
-                  },
-                },
-                '& .MuiInputLabel-root': {
-                  color: theme.palette.text.secondary,
-                },
-              }}
-            />
+            <Box display="flex" flexWrap="wrap" sx={{ mx: -1 }}>
+              <Box flex={{ xs: '0 0 100%', md: '0 0 66.666%' }} sx={{ p: 1 }}>
+                <TextField
+                  fullWidth
+                  label="Enter Stock Symbol"
+                  value={symbol}
+                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                  onKeyPress={handleSearch}
+                  disabled={loading}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon color="primary" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => symbol.trim() && fetchStockData(symbol.trim().toUpperCase())}
+                          disabled={loading || !symbol.trim()}
+                          color="primary"
+                          sx={{
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                              transform: 'scale(1.1)',
+                              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                            },
+                          }}
+                        >
+                          <SearchIcon />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover fieldset': {
+                        borderColor: theme.palette.primary.main,
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderWidth: 2,
+                        borderColor: theme.palette.primary.main,
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: theme.palette.text.secondary,
+                    },
+                  }}
+                />
+              </Box>
+              <Box flex={{ xs: '0 0 100%', md: '0 0 33.333%' }} sx={{ p: 1 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Time Period</InputLabel>
+                  <Select
+                    value={timePeriod}
+                    onChange={handleTimePeriodChange}
+                    label="Time Period"
+                    disabled={loading}
+                    sx={{
+                      borderRadius: 2,
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: alpha(theme.palette.primary.main, 0.2),
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: theme.palette.primary.main,
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderWidth: 2,
+                        borderColor: theme.palette.primary.main,
+                      },
+                    }}
+                  >
+                    {TIME_PERIODS.map((period) => (
+                      <MenuItem key={period.value} value={period.value}>
+                        {period.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            </Box>
           </Paper>
         </Fade>
 
@@ -544,8 +757,8 @@ const StockAnalysis = () => {
 
         {stockData && !loading && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {renderChart()}
-            {renderIndicators()}
+            {renderPriceChart()}
+            {renderTechnicalIndicators()}
           </Box>
         )}
       </Box>

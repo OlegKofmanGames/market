@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
 import pandas as pd
@@ -6,23 +6,29 @@ import numpy as np
 from ta.trend import SMAIndicator, EMAIndicator, MACD
 from ta.momentum import RSIIndicator
 from ta.volatility import BollingerBands
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any
 import logging
 import traceback
 import requests
 import time
 import random
-from app.utils.data_processor import clean_stock_data, prepare_data_for_analysis, detect_outliers, resample_data
+from datetime import datetime
 from app.utils.indicators import get_indicators
 
-# Set up logging
+# Set up logging with more detailed format
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+# Initialize FastAPI app
+app = FastAPI(
+    title="MoneyAI Stock Analysis API",
+    description="API for stock technical analysis and indicators",
+    version="1.0.0"
+)
 
 # Enable CORS
 app.add_middleware(
@@ -37,7 +43,7 @@ app.add_middleware(
 RATE_LIMIT_DELAY = 0.5  # seconds between requests
 last_request_time = 0
 
-def rate_limit():
+def apply_rate_limit():
     """Implement rate limiting to avoid hitting Yahoo Finance API limits."""
     global last_request_time
     current_time = time.time()
@@ -45,31 +51,31 @@ def rate_limit():
     
     if elapsed < RATE_LIMIT_DELAY:
         sleep_time = RATE_LIMIT_DELAY - elapsed + random.uniform(0.1, 0.2)
-        logger.info(f"Rate limiting: sleeping for {sleep_time:.2f} seconds")
+        logger.debug(f"Rate limiting: sleeping for {sleep_time:.2f} seconds")
         time.sleep(sleep_time)
     
     last_request_time = time.time()
 
-def validate_stock_symbol(symbol: str) -> bool:
-    """Validate if a stock symbol exists."""
+def is_valid_stock_symbol(symbol: str) -> bool:
+    """Validate if a stock symbol exists and is tradeable."""
     try:
         # Apply rate limiting
-        rate_limit()
+        apply_rate_limit()
         
         # Create Ticker object
         stock = yf.Ticker(symbol)
-        logger.info(f"Created Ticker object for {symbol}")
+        logger.debug(f"Created Ticker object for {symbol}")
         
         # Try to get a small amount of data to validate the symbol
         logger.info(f"Validating symbol {symbol}")
         df = stock.history(period="1d")
         
         # Log the dataframe info
-        logger.info(f"DataFrame shape: {df.shape}")
-        logger.info(f"DataFrame columns: {df.columns.tolist()}")
+        logger.debug(f"DataFrame shape: {df.shape}")
+        logger.debug(f"DataFrame columns: {df.columns.tolist()}")
         if not df.empty:
-            logger.info(f"First row: {df.iloc[0].to_dict()}")
-            logger.info(f"Last row: {df.iloc[-1].to_dict()}")
+            logger.debug(f"First row: {df.iloc[0].to_dict()}")
+            logger.debug(f"Last row: {df.iloc[-1].to_dict()}")
         
         # Check if we have any data
         if df.empty:
@@ -79,7 +85,7 @@ def validate_stock_symbol(symbol: str) -> bool:
         # Check if we have valid price data by looking at the last row
         try:
             last_close = df['Close'].iloc[-1]
-            logger.info(f"Last close price: {last_close}")
+            logger.debug(f"Last close price: {last_close}")
             if pd.isna(last_close):
                 logger.warning(f"No valid price data for {symbol}")
                 return False
@@ -108,15 +114,15 @@ async def search_stock(symbol: str):
         logger.info(f"Searching for stock: {symbol}")
         
         # Apply rate limiting
-        rate_limit()
+        apply_rate_limit()
         
         # Create Ticker object and get info
         stock = yf.Ticker(symbol)
-        logger.info(f"Created Ticker object for {symbol}")
+        logger.debug(f"Created Ticker object for {symbol}")
         
         try:
             fast_info = stock.fast_info
-            logger.info(f"Got fast info: {fast_info}")
+            logger.debug(f"Got fast info: {fast_info}")
             
             if not fast_info or not fast_info.last_price:
                 logger.error(f"No valid info found for {symbol}")
@@ -158,16 +164,21 @@ async def search_stock(symbol: str):
         raise HTTPException(status_code=500, detail=f"Error searching stock: {str(e)}")
 
 @app.get("/analysis/{symbol}")
-async def get_stock_analysis(symbol: str, period: str = "1y"):
+async def get_stock_analysis(
+    symbol: str,
+    start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
+    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+    period: Optional[str] = Query("1y", description="Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)")
+):
     """Get technical analysis data for a stock."""
     try:
-        logger.info(f"Starting analysis for {symbol} with period {period}")
+        logger.info(f"Starting analysis for {symbol} with period {period}, start_date: {start_date}, end_date: {end_date}")
         
         # Apply rate limiting
-        rate_limit()
+        apply_rate_limit()
         
         # Validate the stock symbol first
-        if not validate_stock_symbol(symbol):
+        if not is_valid_stock_symbol(symbol):
             raise HTTPException(status_code=404, detail=f"Stock symbol '{symbol}' not found or invalid")
         
         # Fetch stock data
@@ -176,11 +187,29 @@ async def get_stock_analysis(symbol: str, period: str = "1y"):
         
         # Use a more reliable approach to fetch data
         try:
-            df = stock.history(period=period)
+            if start_date and end_date:
+                # Convert string dates to datetime
+                start = pd.to_datetime(start_date)
+                end = pd.to_datetime(end_date)
+                
+                # Validate dates
+                if start > end:
+                    raise HTTPException(status_code=400, detail="Start date must be before end date")
+                if end > datetime.now():
+                    raise HTTPException(status_code=400, detail="End date cannot be in the future")
+                
+                df = stock.history(start=start, end=end)
+            else:
+                df = stock.history(period=period)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
         except Exception as e:
             logger.error(f"Error fetching history: {str(e)}")
             # Try alternative approach
-            df = yf.download(symbol, period=period, progress=False)
+            if start_date and end_date:
+                df = yf.download(symbol, start=start_date, end=end_date, progress=False)
+            else:
+                df = yf.download(symbol, period=period, progress=False)
         
         if df.empty:
             logger.error(f"No data found for {symbol}")
@@ -193,7 +222,7 @@ async def get_stock_analysis(symbol: str, period: str = "1y"):
         try:
             df['SMA_20'] = SMAIndicator(close=df['Close'], window=20).sma_indicator()
             df['EMA_20'] = EMAIndicator(close=df['Close'], window=20).ema_indicator()
-            logger.info("SMA and EMA calculated")
+            logger.debug("SMA and EMA calculated")
         except Exception as e:
             logger.error(f"Error calculating SMA/EMA: {str(e)}")
             raise
@@ -201,7 +230,7 @@ async def get_stock_analysis(symbol: str, period: str = "1y"):
         try:
             rsi = RSIIndicator(close=df['Close'])
             df['RSI'] = rsi.rsi()
-            logger.info("RSI calculated")
+            logger.debug("RSI calculated")
         except Exception as e:
             logger.error(f"Error calculating RSI: {str(e)}")
             raise
@@ -210,7 +239,7 @@ async def get_stock_analysis(symbol: str, period: str = "1y"):
             macd = MACD(close=df['Close'])
             df['MACD'] = macd.macd()
             df['MACD_Signal'] = macd.macd_signal()
-            logger.info("MACD calculated")
+            logger.debug("MACD calculated")
         except Exception as e:
             logger.error(f"Error calculating MACD: {str(e)}")
             raise
@@ -220,7 +249,7 @@ async def get_stock_analysis(symbol: str, period: str = "1y"):
             df['BB_upper'] = bb.bollinger_hband()
             df['BB_lower'] = bb.bollinger_lband()
             df['BB_middle'] = bb.bollinger_mavg()
-            logger.info("Bollinger Bands calculated")
+            logger.debug("Bollinger Bands calculated")
         except Exception as e:
             logger.error(f"Error calculating Bollinger Bands: {str(e)}")
             raise
@@ -259,17 +288,38 @@ async def get_stock_analysis(symbol: str, period: str = "1y"):
         raise HTTPException(status_code=500, detail=f"Error analyzing stock: {str(e)}")
 
 @app.get("/indicators/{symbol}")
-async def get_stock_indicators(symbol: str) -> Dict[str, Any]:
+async def get_stock_indicators(
+    symbol: str,
+    start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
+    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+    period: Optional[str] = Query("1y", description="Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)")
+) -> Dict[str, Any]:
     """
     Get technical indicators for a stock symbol.
     """
     try:
         # Validate the stock symbol first
-        if not validate_stock_symbol(symbol):
+        if not is_valid_stock_symbol(symbol):
             raise HTTPException(status_code=404, detail=f"Stock symbol '{symbol}' not found or invalid")
         
-        # Get indicators data
-        indicators_data = get_indicators(symbol)
+        # Get indicators data with time filter
+        try:
+            if start_date and end_date:
+                # Convert string dates to datetime
+                start = pd.to_datetime(start_date)
+                end = pd.to_datetime(end_date)
+                
+                # Validate dates
+                if start > end:
+                    raise HTTPException(status_code=400, detail="Start date must be before end date")
+                if end > datetime.now():
+                    raise HTTPException(status_code=400, detail="End date cannot be in the future")
+                    
+                indicators_data = get_indicators(symbol, start_date=start, end_date=end)
+            else:
+                indicators_data = get_indicators(symbol, period=period)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
         
         return indicators_data
         
@@ -281,4 +331,4 @@ async def get_stock_indicators(symbol: str) -> Dict[str, Any]:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 

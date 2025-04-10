@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 import yfinance as yf
 from datetime import datetime, timedelta
 
@@ -49,14 +49,22 @@ def calculate_macd(data: pd.DataFrame) -> Tuple[float, str, str]:
     else:
         return current_macd, 'warning', 'MACD is at signal line, indicating neutral momentum.'
 
-def get_indicators(symbol: str) -> Dict[str, Any]:
+def get_indicators(
+    symbol: str,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    period: str = "1y"
+) -> Dict[str, Any]:
     """Get all technical indicators for a given stock symbol."""
     try:
         # Get stock data
         stock = yf.Ticker(symbol)
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=365)
-        data = stock.history(start=start_date, end=end_date)
+        
+        # Fetch data based on provided parameters
+        if start_date and end_date:
+            data = stock.history(start=start_date, end=end_date)
+        else:
+            data = stock.history(period=period)
         
         if data.empty:
             raise ValueError(f"No data found for symbol {symbol}")

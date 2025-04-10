@@ -3,7 +3,6 @@ import {
   Box,
   Paper,
   Typography,
-  Grid,
   CircularProgress,
   Alert,
   Container,
@@ -15,11 +14,11 @@ import {
   IconButton,
   Theme,
 } from '@mui/material';
-import { GridProps } from '@mui/material/Grid';
 import SearchIcon from '@mui/icons-material/Search';
 import axios, { AxiosError } from 'axios';
 import Logo from './Logo';
 
+// Types
 interface IndicatorData {
   rsi: {
     value: number;
@@ -51,6 +50,10 @@ interface ErrorResponse {
   detail: string;
 }
 
+// Constants
+const API_BASE_URL = 'http://localhost:8000';
+
+// Helper functions
 const getSignalColor = (signal: 'good' | 'warning' | 'bad', theme: Theme) => {
   switch (signal) {
     case 'good':
@@ -73,6 +76,7 @@ const getBorderColor = (signal: 'good' | 'warning' | 'bad', theme: Theme) => {
   }
 };
 
+// Components
 const IndicatorBox = ({ title, data }: IndicatorBoxProps) => {
   const theme = useTheme();
   
@@ -82,6 +86,9 @@ const IndicatorBox = ({ title, data }: IndicatorBoxProps) => {
         elevation={6}
         sx={{
           p: 4,
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
           borderRadius: 4,
           background: getSignalColor(data.signal, theme),
           border: `2px solid ${getBorderColor(data.signal, theme)}`,
@@ -121,6 +128,7 @@ const IndicatorBox = ({ title, data }: IndicatorBoxProps) => {
           sx={{
             color: theme.palette.text.secondary,
             lineHeight: 1.6,
+            flexGrow: 1,
           }}
         >
           {data.explanation}
@@ -137,6 +145,7 @@ const Indicators = () => {
   const [error, setError] = useState('');
   const [indicators, setIndicators] = useState<IndicatorData | null>(null);
 
+  // Fetch indicators data from API
   const fetchIndicators = async (stockSymbol: string) => {
     if (!stockSymbol.trim()) {
       setError('Please enter a stock symbol');
@@ -145,24 +154,24 @@ const Indicators = () => {
 
     setLoading(true);
     setError('');
-    console.log(`Fetching indicators for symbol: ${stockSymbol}`);
+    console.log(`[Indicators] Fetching indicators for symbol: ${stockSymbol}`);
     
     try {
-      const response = await axios.get(`http://localhost:8000/indicators/${stockSymbol}`);
-      console.log('Indicators data received:', response.data);
+      const response = await axios.get(`${API_BASE_URL}/indicators/${stockSymbol}`);
+      console.log('[Indicators] Indicators data received:', response.data);
       setIndicators(response.data);
     } catch (err) {
-      console.error('Error fetching indicators:', err);
+      console.error('[Indicators] Error fetching indicators:', err);
       if (axios.isAxiosError(err)) {
         const axiosError = err as AxiosError<ErrorResponse>;
         if (axiosError.response) {
-          console.error('Error response:', axiosError.response.data);
+          console.error('[Indicators] Error response:', axiosError.response.data);
           setError(axiosError.response.data?.detail || 'Failed to fetch indicators data. Please try again later.');
         } else if (axiosError.request) {
-          console.error('Error request:', axiosError.request);
+          console.error('[Indicators] Error request:', axiosError.request);
           setError('Network error. Please check your connection and try again.');
         } else {
-          console.error('Error message:', axiosError.message);
+          console.error('[Indicators] Error message:', axiosError.message);
           setError('An unexpected error occurred. Please try again later.');
         }
       } else {
@@ -173,6 +182,7 @@ const Indicators = () => {
     }
   };
 
+  // Handle search input
   const handleSearch = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter') {
       fetchIndicators(symbol.trim().toUpperCase());
@@ -200,42 +210,22 @@ const Indicators = () => {
               p: 4,
               mb: 6,
               borderRadius: 4,
-              background: `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.9)}, ${alpha(theme.palette.background.paper, 0.7)})`,
-              backdropFilter: 'blur(20px)',
-              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-              boxShadow: `0 8px 32px 0 ${alpha(theme.palette.common.black, 0.2)}`,
-              transition: 'all 0.3s ease-in-out',
-              '&:hover': {
-                boxShadow: `0 12px 40px 0 ${alpha(theme.palette.common.black, 0.3)}`,
-              },
+              background: alpha(theme.palette.background.paper, 0.6),
+              backdropFilter: 'blur(10px)',
             }}
           >
             <TextField
               fullWidth
-              label="Enter Stock Symbol"
               value={symbol}
               onChange={(e) => setSymbol(e.target.value.toUpperCase())}
               onKeyPress={handleSearch}
-              disabled={loading}
+              placeholder="Enter stock symbol (e.g., AAPL)"
               InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="primary" />
-                  </InputAdornment>
-                ),
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton
+                    <IconButton 
                       onClick={() => fetchIndicators(symbol.trim().toUpperCase())}
-                      disabled={loading || !symbol.trim()}
-                      color="primary"
-                      sx={{
-                        transition: 'all 0.2s ease-in-out',
-                        '&:hover': {
-                          transform: 'scale(1.1)',
-                          backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                        },
-                      }}
+                      edge="end"
                     >
                       <SearchIcon />
                     </IconButton>
@@ -244,81 +234,56 @@ const Indicators = () => {
               }}
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  transition: 'all 0.2s ease-in-out',
-                  '&:hover fieldset': {
-                    borderColor: theme.palette.primary.main,
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderWidth: 2,
-                    borderColor: theme.palette.primary.main,
-                  },
-                },
-                '& .MuiInputLabel-root': {
-                  color: theme.palette.text.secondary,
+                  borderRadius: 3,
                 },
               }}
             />
           </Paper>
         </Fade>
 
-        {error && (
-          <Fade in={true} timeout={800}>
-            <Alert 
-              severity="error" 
-              sx={{ 
-                mb: 4,
-                borderRadius: 2,
-                '& .MuiAlert-icon': {
-                  fontSize: 24,
-                },
-                boxShadow: `0 4px 12px ${alpha(theme.palette.error.main, 0.2)}`,
-              }}
-            >
-              {error}
-            </Alert>
-          </Fade>
-        )}
-
         {loading && (
-          <Box 
-            display="flex" 
-            justifyContent="center" 
-            alignItems="center" 
-            minHeight="400px"
-          >
-            <CircularProgress 
-              size={80} 
-              thickness={4}
-              sx={{
-                color: theme.palette.primary.main,
-                filter: 'drop-shadow(0 0 8px rgba(144, 202, 249, 0.5))',
-              }}
-            />
+          <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+            <CircularProgress />
           </Box>
         )}
 
-        {indicators && !loading && (
-          <Grid container spacing={4}>
-            <Box component={Grid} item xs={12} md={4}>
-              <IndicatorBox 
-                title="Relative Strength Index (RSI)" 
-                data={indicators.rsi} 
+        {error && (
+          <Alert severity="error" sx={{ mb: 4, borderRadius: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        {indicators && (
+          <Box 
+            sx={{ 
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                md: 'repeat(3, 1fr)'
+              },
+              gap: 4,
+              mt: 0
+            }}
+          >
+            <Box>
+              <IndicatorBox
+                title="RSI (Relative Strength Index)"
+                data={indicators.rsi}
               />
             </Box>
-            <Box component={Grid} item xs={12} md={4}>
-              <IndicatorBox 
-                title="Death Cross" 
-                data={indicators.deathCross} 
+            <Box>
+              <IndicatorBox
+                title="Death Cross"
+                data={indicators.deathCross}
               />
             </Box>
-            <Box component={Grid} item xs={12} md={4}>
-              <IndicatorBox 
-                title="MACD" 
-                data={indicators.macd} 
+            <Box>
+              <IndicatorBox
+                title="MACD (Moving Average Convergence Divergence)"
+                data={indicators.macd}
               />
             </Box>
-          </Grid>
+          </Box>
         )}
       </Box>
     </Container>
