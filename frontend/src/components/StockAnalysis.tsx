@@ -7,7 +7,17 @@ import {
   Grid,
   CircularProgress,
   Alert,
+  Container,
+  InputAdornment,
+  IconButton,
+  useTheme,
+  alpha,
+  Fade,
+  Zoom,
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
 import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { Data } from 'plotly.js';
@@ -34,6 +44,7 @@ interface StockData {
 }
 
 const StockAnalysis = () => {
+  const theme = useTheme();
   const [symbol, setSymbol] = useState('');
   const [stockData, setStockData] = useState<StockData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -95,7 +106,11 @@ const StockAnalysis = () => {
           y: stockData.prices,
           type: 'scatter',
           mode: 'lines',
-          line: { color: '#90caf9' },
+          line: { 
+            color: theme.palette.primary.main,
+            width: 2,
+            shape: 'spline',
+          },
         },
         {
           name: 'SMA 20',
@@ -103,7 +118,12 @@ const StockAnalysis = () => {
           y: stockData.indicators.SMA_20,
           type: 'scatter',
           mode: 'lines',
-          line: { color: '#f48fb1', dash: 'dash' },
+          line: { 
+            color: theme.palette.secondary.main,
+            dash: 'dash',
+            width: 1.5,
+            shape: 'spline',
+          },
         },
         {
           name: 'EMA 20',
@@ -111,7 +131,12 @@ const StockAnalysis = () => {
           y: stockData.indicators.EMA_20,
           type: 'scatter',
           mode: 'lines',
-          line: { color: '#4caf50', dash: 'dot' },
+          line: { 
+            color: '#4caf50',
+            dash: 'dot',
+            width: 1.5,
+            shape: 'spline',
+          },
         },
         {
           name: 'BB Upper',
@@ -119,7 +144,11 @@ const StockAnalysis = () => {
           y: stockData.indicators.BB_upper,
           type: 'scatter',
           mode: 'lines',
-          line: { color: 'rgba(255,255,255,0.3)' },
+          line: { 
+            color: alpha(theme.palette.common.white, 0.3),
+            width: 1,
+            shape: 'spline',
+          },
         },
         {
           name: 'BB Lower',
@@ -127,7 +156,11 @@ const StockAnalysis = () => {
           y: stockData.indicators.BB_lower,
           type: 'scatter',
           mode: 'lines',
-          line: { color: 'rgba(255,255,255,0.3)' },
+          line: { 
+            color: alpha(theme.palette.common.white, 0.3),
+            width: 1,
+            shape: 'spline',
+          },
           fill: 'tonexty',
         },
       ];
@@ -160,27 +193,63 @@ const StockAnalysis = () => {
       }
 
       return (
-        <Plot
-          data={traces}
-          layout={{
-            title: `${symbol} Technical Analysis`,
-            paper_bgcolor: 'rgba(0,0,0,0)',
-            plot_bgcolor: 'rgba(0,0,0,0)',
-            font: { color: '#fff' },
-            xaxis: {
-              gridcolor: 'rgba(255,255,255,0.1)',
-            },
-            yaxis: {
-              gridcolor: 'rgba(255,255,255,0.1)',
-            },
-            showlegend: true,
-            legend: {
-              bgcolor: 'rgba(0,0,0,0)',
-            },
-          }}
-          style={{ width: '100%', height: '600px' }}
-          useResizeHandler={true}
-        />
+        <Zoom in={true} timeout={800}>
+          <Paper 
+            elevation={6}
+            sx={{
+              p: 4,
+              borderRadius: 4,
+              background: `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.9)}, ${alpha(theme.palette.background.paper, 0.7)})`,
+              backdropFilter: 'blur(20px)',
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+              boxShadow: `0 8px 32px 0 ${alpha(theme.palette.common.black, 0.2)}`,
+              transition: 'all 0.3s ease-in-out',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: `0 12px 40px 0 ${alpha(theme.palette.common.black, 0.3)}`,
+              },
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2 }}>
+              <ShowChartIcon sx={{ fontSize: 32, color: theme.palette.primary.main }} />
+              <Typography variant="h5" sx={{ fontWeight: 600, background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                {symbol} Price Analysis
+              </Typography>
+            </Box>
+            <Plot
+              data={traces}
+              layout={{
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { 
+                  color: theme.palette.text.primary,
+                  family: theme.typography.fontFamily,
+                  size: 12,
+                },
+                xaxis: {
+                  gridcolor: alpha(theme.palette.common.white, 0.1),
+                  zerolinecolor: alpha(theme.palette.common.white, 0.2),
+                  tickfont: { size: 11 },
+                },
+                yaxis: {
+                  gridcolor: alpha(theme.palette.common.white, 0.1),
+                  zerolinecolor: alpha(theme.palette.common.white, 0.2),
+                  tickfont: { size: 11 },
+                },
+                showlegend: true,
+                legend: {
+                  bgcolor: 'rgba(0,0,0,0)',
+                  bordercolor: alpha(theme.palette.common.white, 0.1),
+                  borderwidth: 1,
+                  font: { size: 11 },
+                },
+                margin: { t: 20, r: 20, b: 40, l: 60 },
+              }}
+              style={{ width: '100%', height: '600px' }}
+              useResizeHandler={true}
+            />
+          </Paper>
+        </Zoom>
       );
     } catch (err) {
       console.error('Error rendering chart:', err);
@@ -196,119 +265,308 @@ const StockAnalysis = () => {
     if (!stockData) return null;
 
     return (
-      <Grid container spacing={2}>
+      <Grid container spacing={4}>
         <Grid {...({ item: true, xs: 12, md: 6 } as GridProps)}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6">RSI</Typography>
-            <Plot
-              data={[
-                {
-                  x: stockData.dates,
-                  y: stockData.indicators.RSI,
-                  type: 'scatter',
-                  mode: 'lines',
-                  line: { color: '#90caf9' },
+          <Zoom in={true} timeout={800} style={{ transitionDelay: '200ms' }}>
+            <Paper 
+              elevation={6}
+              sx={{
+                p: 4,
+                borderRadius: 4,
+                background: `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.9)}, ${alpha(theme.palette.background.paper, 0.7)})`,
+                backdropFilter: 'blur(20px)',
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                boxShadow: `0 8px 32px 0 ${alpha(theme.palette.common.black, 0.2)}`,
+                transition: 'all 0.3s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: `0 12px 40px 0 ${alpha(theme.palette.common.black, 0.3)}`,
                 },
-              ]}
-              layout={{
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)',
-                font: { color: '#fff' },
-                xaxis: { gridcolor: 'rgba(255,255,255,0.1)' },
-                yaxis: { gridcolor: 'rgba(255,255,255,0.1)' },
-                shapes: [
-                  {
-                    type: 'line',
-                    y0: 70,
-                    y1: 70,
-                    x0: stockData.dates[0],
-                    x1: stockData.dates[stockData.dates.length - 1],
-                    line: { color: 'red', dash: 'dash' },
-                  },
-                  {
-                    type: 'line',
-                    y0: 30,
-                    y1: 30,
-                    x0: stockData.dates[0],
-                    x1: stockData.dates[stockData.dates.length - 1],
-                    line: { color: 'green', dash: 'dash' },
-                  },
-                ],
               }}
-              style={{ width: '100%', height: '300px' }}
-              useResizeHandler={true}
-            />
-          </Paper>
+            >
+              <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                Relative Strength Index (RSI)
+              </Typography>
+              <Plot
+                data={[
+                  {
+                    x: stockData.dates,
+                    y: stockData.indicators.RSI,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { 
+                      color: theme.palette.primary.main,
+                      width: 2,
+                      shape: 'spline',
+                    },
+                  },
+                ]}
+                layout={{
+                  paper_bgcolor: 'rgba(0,0,0,0)',
+                  plot_bgcolor: 'rgba(0,0,0,0)',
+                  font: { 
+                    color: theme.palette.text.primary,
+                    family: theme.typography.fontFamily,
+                    size: 12,
+                  },
+                  xaxis: { 
+                    gridcolor: alpha(theme.palette.common.white, 0.1),
+                    zerolinecolor: alpha(theme.palette.common.white, 0.2),
+                    tickfont: { size: 11 },
+                  },
+                  yaxis: { 
+                    gridcolor: alpha(theme.palette.common.white, 0.1),
+                    zerolinecolor: alpha(theme.palette.common.white, 0.2),
+                    tickfont: { size: 11 },
+                  },
+                  shapes: [
+                    {
+                      type: 'line',
+                      y0: 70,
+                      y1: 70,
+                      x0: stockData.dates[0],
+                      x1: stockData.dates[stockData.dates.length - 1],
+                      line: { color: theme.palette.error.main, dash: 'dash', width: 1 },
+                    },
+                    {
+                      type: 'line',
+                      y0: 30,
+                      y1: 30,
+                      x0: stockData.dates[0],
+                      x1: stockData.dates[stockData.dates.length - 1],
+                      line: { color: theme.palette.success.main, dash: 'dash', width: 1 },
+                    },
+                  ],
+                  margin: { t: 20, r: 20, b: 40, l: 60 },
+                }}
+                style={{ width: '100%', height: '300px' }}
+                useResizeHandler={true}
+              />
+            </Paper>
+          </Zoom>
         </Grid>
         <Grid {...({ item: true, xs: 12, md: 6 } as GridProps)}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6">MACD</Typography>
-            <Plot
-              data={[
-                {
-                  x: stockData.dates,
-                  y: stockData.indicators.MACD,
-                  type: 'scatter',
-                  mode: 'lines',
-                  name: 'MACD',
-                  line: { color: '#90caf9' },
+          <Zoom in={true} timeout={800} style={{ transitionDelay: '400ms' }}>
+            <Paper 
+              elevation={6}
+              sx={{
+                p: 4,
+                borderRadius: 4,
+                background: `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.9)}, ${alpha(theme.palette.background.paper, 0.7)})`,
+                backdropFilter: 'blur(20px)',
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                boxShadow: `0 8px 32px 0 ${alpha(theme.palette.common.black, 0.2)}`,
+                transition: 'all 0.3s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: `0 12px 40px 0 ${alpha(theme.palette.common.black, 0.3)}`,
                 },
-                {
-                  x: stockData.dates,
-                  y: stockData.indicators.MACD_Signal,
-                  type: 'scatter',
-                  mode: 'lines',
-                  name: 'Signal',
-                  line: { color: '#f48fb1' },
-                },
-              ]}
-              layout={{
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)',
-                font: { color: '#fff' },
-                xaxis: { gridcolor: 'rgba(255,255,255,0.1)' },
-                yaxis: { gridcolor: 'rgba(255,255,255,0.1)' },
               }}
-              style={{ width: '100%', height: '300px' }}
-              useResizeHandler={true}
-            />
-          </Paper>
+            >
+              <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                Moving Average Convergence Divergence (MACD)
+              </Typography>
+              <Plot
+                data={[
+                  {
+                    x: stockData.dates,
+                    y: stockData.indicators.MACD,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'MACD',
+                    line: { 
+                      color: theme.palette.primary.main,
+                      width: 2,
+                      shape: 'spline',
+                    },
+                  },
+                  {
+                    x: stockData.dates,
+                    y: stockData.indicators.MACD_Signal,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'Signal',
+                    line: { 
+                      color: theme.palette.secondary.main,
+                      width: 2,
+                      shape: 'spline',
+                    },
+                  },
+                ]}
+                layout={{
+                  paper_bgcolor: 'rgba(0,0,0,0)',
+                  plot_bgcolor: 'rgba(0,0,0,0)',
+                  font: { 
+                    color: theme.palette.text.primary,
+                    family: theme.typography.fontFamily,
+                    size: 12,
+                  },
+                  xaxis: { 
+                    gridcolor: alpha(theme.palette.common.white, 0.1),
+                    zerolinecolor: alpha(theme.palette.common.white, 0.2),
+                    tickfont: { size: 11 },
+                  },
+                  yaxis: { 
+                    gridcolor: alpha(theme.palette.common.white, 0.1),
+                    zerolinecolor: alpha(theme.palette.common.white, 0.2),
+                    tickfont: { size: 11 },
+                  },
+                  margin: { t: 20, r: 20, b: 40, l: 60 },
+                }}
+                style={{ width: '100%', height: '300px' }}
+                useResizeHandler={true}
+              />
+            </Paper>
+          </Zoom>
         </Grid>
       </Grid>
     );
   };
 
   return (
-    <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Stock Technical Analysis
-      </Typography>
-      <TextField
-        fullWidth
-        label="Enter Stock Symbol"
-        value={symbol}
-        onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-        onKeyPress={handleSearch}
-        disabled={loading}
-        sx={{ mb: 4 }}
-      />
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-      {loading && (
-        <Box display="flex" justifyContent="center" my={4}>
-          <CircularProgress />
-        </Box>
-      )}
-      {stockData && !loading && (
-        <>
-          {renderChart()}
-          <Box mt={4}>{renderIndicators()}</Box>
-        </>
-      )}
-    </Box>
+    <Container maxWidth="xl">
+      <Box sx={{ py: 6 }}>
+        <Fade in={true} timeout={800}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            mb: 6,
+            gap: 2,
+          }}>
+            <TrendingUpIcon sx={{ 
+              fontSize: 48, 
+              color: theme.palette.primary.main,
+              filter: 'drop-shadow(0 0 8px rgba(144, 202, 249, 0.5))',
+            }} />
+            <Typography 
+              variant="h3" 
+              component="h1" 
+              sx={{ 
+                fontWeight: 700,
+                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              }}
+            >
+              Stock Technical Analysis
+            </Typography>
+          </Box>
+        </Fade>
+        
+        <Fade in={true} timeout={800} style={{ transitionDelay: '200ms' }}>
+          <Paper 
+            elevation={6}
+            sx={{
+              p: 4,
+              mb: 6,
+              borderRadius: 4,
+              background: `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.9)}, ${alpha(theme.palette.background.paper, 0.7)})`,
+              backdropFilter: 'blur(20px)',
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+              boxShadow: `0 8px 32px 0 ${alpha(theme.palette.common.black, 0.2)}`,
+              transition: 'all 0.3s ease-in-out',
+              '&:hover': {
+                boxShadow: `0 12px 40px 0 ${alpha(theme.palette.common.black, 0.3)}`,
+              },
+            }}
+          >
+            <TextField
+              fullWidth
+              label="Enter Stock Symbol"
+              value={symbol}
+              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+              onKeyPress={handleSearch}
+              disabled={loading}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="primary" />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => symbol.trim() && fetchStockData(symbol.trim().toUpperCase())}
+                      disabled={loading || !symbol.trim()}
+                      color="primary"
+                      sx={{
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          transform: 'scale(1.1)',
+                          backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                        },
+                      }}
+                    >
+                      <SearchIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover fieldset': {
+                    borderColor: theme.palette.primary.main,
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderWidth: 2,
+                    borderColor: theme.palette.primary.main,
+                  },
+                },
+                '& .MuiInputLabel-root': {
+                  color: theme.palette.text.secondary,
+                },
+              }}
+            />
+          </Paper>
+        </Fade>
+
+        {error && (
+          <Fade in={true} timeout={800}>
+            <Alert 
+              severity="error" 
+              sx={{ 
+                mb: 4,
+                borderRadius: 2,
+                '& .MuiAlert-icon': {
+                  fontSize: 24,
+                },
+                boxShadow: `0 4px 12px ${alpha(theme.palette.error.main, 0.2)}`,
+              }}
+            >
+              {error}
+            </Alert>
+          </Fade>
+        )}
+
+        {loading && (
+          <Box 
+            display="flex" 
+            justifyContent="center" 
+            alignItems="center" 
+            minHeight="400px"
+          >
+            <CircularProgress 
+              size={80} 
+              thickness={4}
+              sx={{
+                color: theme.palette.primary.main,
+                filter: 'drop-shadow(0 0 8px rgba(144, 202, 249, 0.5))',
+              }}
+            />
+          </Box>
+        )}
+
+        {stockData && !loading && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {renderChart()}
+            {renderIndicators()}
+          </Box>
+        )}
+      </Box>
+    </Container>
   );
 };
 
