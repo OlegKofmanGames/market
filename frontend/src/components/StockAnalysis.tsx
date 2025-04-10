@@ -16,12 +16,12 @@ import {
   Zoom,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { Data } from 'plotly.js';
 import { GridProps } from '@mui/material/Grid';
+import Logo from './Logo';
 
 interface StockData {
   dates: string[];
@@ -433,24 +433,7 @@ const StockAnalysis = () => {
             mb: 6,
             gap: 2,
           }}>
-            <TrendingUpIcon sx={{ 
-              fontSize: 48, 
-              color: theme.palette.primary.main,
-              filter: 'drop-shadow(0 0 8px rgba(144, 202, 249, 0.5))',
-            }} />
-            <Typography 
-              variant="h3" 
-              component="h1" 
-              sx={{ 
-                fontWeight: 700,
-                background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                textShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              }}
-            >
-              Stock Technical Analysis
-            </Typography>
+            <Logo size="large" />
           </Box>
         </Fade>
         
