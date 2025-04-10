@@ -6,12 +6,14 @@ import numpy as np
 from ta.trend import SMAIndicator, EMAIndicator, MACD
 from ta.momentum import RSIIndicator
 from ta.volatility import BollingerBands
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import logging
 import traceback
 import requests
 import time
 import random
+from app.utils.data_processor import clean_stock_data, prepare_data_for_analysis, detect_outliers, resample_data
+from app.utils.indicators import get_indicators
 
 # Set up logging
 logging.basicConfig(
@@ -255,6 +257,27 @@ async def get_stock_analysis(symbol: str, period: str = "1y"):
         logger.error(f"Error analyzing stock {symbol}: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error analyzing stock: {str(e)}")
+
+@app.get("/indicators/{symbol}")
+async def get_stock_indicators(symbol: str) -> Dict[str, Any]:
+    """
+    Get technical indicators for a stock symbol.
+    """
+    try:
+        # Validate the stock symbol first
+        if not validate_stock_symbol(symbol):
+            raise HTTPException(status_code=404, detail=f"Stock symbol '{symbol}' not found or invalid")
+        
+        # Get indicators data
+        indicators_data = get_indicators(symbol)
+        
+        return indicators_data
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.error(f"Error getting indicators for {symbol}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 if __name__ == "__main__":
     import uvicorn
