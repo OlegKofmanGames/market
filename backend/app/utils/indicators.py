@@ -6,11 +6,24 @@ from datetime import datetime, timedelta
 
 def calculate_rsi(data: pd.DataFrame, period: int = 14) -> Tuple[float, str, str]:
     """Calculate RSI and return value, signal, and explanation."""
+    # Calculate price changes
     delta = data['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
     
-    rs = gain / loss
+    # Separate gains and losses
+    gains = delta.where(delta > 0, 0)
+    losses = -delta.where(delta < 0, 0)
+    
+    # Calculate first average gain and loss
+    avg_gain = gains.rolling(window=period).mean()
+    avg_loss = losses.rolling(window=period).mean()
+    
+    # Calculate subsequent values using the smoothing formula
+    for i in range(period, len(gains)):
+        avg_gain.iloc[i] = (avg_gain.iloc[i-1] * (period-1) + gains.iloc[i]) / period
+        avg_loss.iloc[i] = (avg_loss.iloc[i-1] * (period-1) + losses.iloc[i]) / period
+    
+    # Calculate RS and RSI
+    rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
     current_rsi = rsi.iloc[-1]
     

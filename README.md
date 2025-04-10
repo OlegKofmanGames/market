@@ -1,21 +1,15 @@
 # MoneyAI - Stock Technical Analysis Platform
 
-![MoneyAI Logo](frontend/public/favicon.svg)
-
-MoneyAI is a modern web application that provides real-time technical analysis for stocks. It combines powerful data processing with an intuitive user interface to help investors make informed decisions.
+MoneyAI is a modern web application that provides real-time stock technical analysis and indicators. It combines powerful backend analysis with a beautiful, responsive frontend interface.
 
 ## Features
 
-- **Real-time Stock Analysis**: Get instant technical analysis for any stock symbol
-- **Advanced Technical Indicators**:
-  - Moving Averages (SMA, EMA)
-  - Relative Strength Index (RSI)
-  - Moving Average Convergence Divergence (MACD)
-  - Bollinger Bands
-- **Support and Resistance Levels**: Automatically detected key price levels
-- **Interactive Charts**: Beautiful, responsive charts with zoom and pan capabilities
-- **Modern UI**: Clean, professional interface with dark mode support
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- Real-time stock data analysis
+- Technical indicators (RSI, MACD, Death Cross)
+- Interactive charts with multiple timeframes
+- Support and resistance level detection
+- Modern, responsive UI with dark mode
+- Glass-morphism design elements
 
 ## Tech Stack
 
@@ -26,17 +20,17 @@ MoneyAI is a modern web application that provides real-time technical analysis f
 - Axios for API communication
 
 ### Backend
-- Python with FastAPI
+- FastAPI (Python)
 - yfinance for stock data
-- pandas for data processing
-- ta-lib for technical indicators
+- Technical Analysis (ta) library
+- Pandas for data processing
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js (v14 or higher)
+- Node.js (v16 or higher)
 - Python (v3.8 or higher)
-- pip (Python package manager)
+- npm or yarn
 
 ### Installation
 
@@ -74,29 +68,68 @@ npm run dev
 
 3. Open your browser and navigate to `http://localhost:5173`
 
-## Usage
+## API Documentation
 
-1. Enter a stock symbol (e.g., AAPL, GOOGL, MSFT) in the search bar
-2. Press Enter or click the search button
-3. View the technical analysis results:
-   - Price chart with moving averages
-   - RSI indicator
-   - MACD indicator
-   - Support and resistance levels
+The backend provides the following endpoints:
+
+### Stock Analysis
+- `GET /analysis/{symbol}` - Get technical analysis data for a stock
+  - Query parameters:
+    - `period`: Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
+    - `start_date`: Optional start date (YYYY-MM-DD)
+    - `end_date`: Optional end date (YYYY-MM-DD)
+
+### Technical Indicators
+- `GET /indicators/{symbol}` - Get technical indicators for a stock
+  - Query parameters:
+    - `period`: Time period
+    - `start_date`: Optional start date
+    - `end_date`: Optional end date
+
+### Stock Search
+- `GET /search/{symbol}` - Search for a stock symbol and get basic information
+
+## Project Structure
+
+```
+moneyai/
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── StockAnalysis.tsx
+│   │   │   ├── Indicators.tsx
+│   │   │   ├── Logo.tsx
+│   │   │   └── Footer.tsx
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   └── package.json
+├── backend/
+│   ├── main.py
+│   ├── requirements.txt
+│   └── app/
+│       └── utils/
+│           └── indicators.py
+└── README.md
+```
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
 
-- Data provided by Yahoo Finance
-- Technical indicators powered by TA-Lib
-- Icons from Material Icons
+- Yahoo Finance for providing stock data
+- Technical Analysis library for indicators
+- Material-UI for the component library
+- Plotly.js for charting capabilities
 
 ## Contact
 

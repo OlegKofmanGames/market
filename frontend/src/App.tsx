@@ -2,8 +2,12 @@ import { ThemeProvider, createTheme, CssBaseline, Box, AppBar, Toolbar, Button, 
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { alpha } from '@mui/material/styles';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
+import SignalCellularAltIcon from '@mui/icons-material/SignalCellularAlt';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import StockAnalysis from './components/StockAnalysis';
 import Indicators from './components/Indicators';
+import Documentation from './components/Documentation';
 import Logo from './components/Logo';
 
 const theme = createTheme({
@@ -49,6 +53,12 @@ const Navigation = () => {
   const theme = useTheme();
   const location = useLocation();
 
+  const menuItems = [
+    { path: '/', label: 'Analysis', icon: <ShowChartIcon /> },
+    { path: '/indicators', label: 'Indicators', icon: <SignalCellularAltIcon /> },
+    { path: '/docs', label: 'Documentation', icon: <MenuBookIcon /> }
+  ];
+
   return (
     <AppBar 
       position="sticky" 
@@ -70,38 +80,29 @@ const Navigation = () => {
             borderRadius: '12px',
           }}
         >
-          <Button
-            component={Link}
-            to="/"
-            color="inherit"
-            sx={{
-              px: 3,
-              backgroundColor: location.pathname === '/' ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
-              '&:hover': {
-                backgroundColor: location.pathname === '/' 
-                  ? alpha(theme.palette.primary.main, 0.2) 
-                  : alpha(theme.palette.common.white, 0.05),
-              },
-            }}
-          >
-            Analysis
-          </Button>
-          <Button
-            component={Link}
-            to="/indicators"
-            color="inherit"
-            sx={{
-              px: 3,
-              backgroundColor: location.pathname === '/indicators' ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
-              '&:hover': {
-                backgroundColor: location.pathname === '/indicators' 
-                  ? alpha(theme.palette.primary.main, 0.2) 
-                  : alpha(theme.palette.common.white, 0.05),
-              },
-            }}
-          >
-            Indicators
-          </Button>
+          {menuItems.map((item) => (
+            <Button
+              key={item.path}
+              component={Link}
+              to={item.path}
+              color="inherit"
+              startIcon={item.icon}
+              sx={{
+                px: 3,
+                backgroundColor: location.pathname === item.path ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                '&:hover': {
+                  backgroundColor: location.pathname === item.path 
+                    ? alpha(theme.palette.primary.main, 0.2) 
+                    : alpha(theme.palette.common.white, 0.05),
+                },
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
+              {item.label}
+            </Button>
+          ))}
         </Box>
       </Toolbar>
     </AppBar>
@@ -170,6 +171,7 @@ function App() {
             <Routes>
               <Route path="/" element={<StockAnalysis />} />
               <Route path="/indicators" element={<Indicators />} />
+              <Route path="/docs" element={<Documentation />} />
             </Routes>
           </Box>
         </Box>

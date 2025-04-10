@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="400" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Face -->
+  <circle cx="200" cy="200" r="180" fill="#FFD700" opacity="0.9"/>
+  
+  <!-- Sunglasses -->
+  <path d="M120 160 L280 160" stroke="#000000" stroke-width="8"/>
+  <rect x="120" y="160" width="70" height="40" rx="5" fill="#000000"/>
+  <rect x="210" y="160" width="70" height="40" rx="5" fill="#000000"/>
+  
+  <!-- Hair -->
+  <path d="M140 100 Q200 50 260 100" stroke="#FFD700" stroke-width="30"/>
+  
+  <!-- Suit -->
+  <path d="M150 250 L250 250 L270 350 L130 350 Z" fill="#1A237E"/>
+  
+  <!-- Tie -->
+  <path d="M190 250 L210 250 L220 350 L180 350 Z" fill="#FF0000"/>
+  
+  <!-- Smile -->
+  <path d="M160 220 Q200 260 240 220" stroke="#000000" stroke-width="8" fill="none"/>
+</svg> 

@@ -1,3 +1,21 @@
+"""
+MoneyAI Stock Analysis API
+
+This module provides a FastAPI application that serves as the backend for the MoneyAI stock analysis platform.
+It offers endpoints for fetching stock data, calculating technical indicators, and performing technical analysis.
+
+The API uses Yahoo Finance (yfinance) for stock data and various technical analysis libraries
+for calculating indicators and performing analysis.
+
+Endpoints:
+    /search/{symbol}: Search for a stock symbol and get basic information
+    /analysis/{symbol}: Get technical analysis data for a stock
+    /indicators/{symbol}: Get technical indicators for a stock
+
+Author: Your Name
+Version: 1.0.0
+"""
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
@@ -44,7 +62,15 @@ RATE_LIMIT_DELAY = 0.5  # seconds between requests
 last_request_time = 0
 
 def apply_rate_limit():
-    """Implement rate limiting to avoid hitting Yahoo Finance API limits."""
+    """
+    Implement rate limiting to avoid hitting Yahoo Finance API limits.
+    
+    This function ensures that requests to the Yahoo Finance API are spaced out
+    to avoid rate limiting issues. It adds a small random delay between requests.
+    
+    Returns:
+        None
+    """
     global last_request_time
     current_time = time.time()
     elapsed = current_time - last_request_time
@@ -57,7 +83,21 @@ def apply_rate_limit():
     last_request_time = time.time()
 
 def is_valid_stock_symbol(symbol: str) -> bool:
-    """Validate if a stock symbol exists and is tradeable."""
+    """
+    Validate if a stock symbol exists and is tradeable.
+    
+    This function checks if a given stock symbol is valid and can be traded
+    by attempting to fetch a small amount of data for the symbol.
+    
+    Args:
+        symbol (str): The stock symbol to validate
+        
+    Returns:
+        bool: True if the symbol is valid, False otherwise
+        
+    Raises:
+        requests.exceptions.HTTPError: If there's an HTTP error during validation
+    """
     try:
         # Apply rate limiting
         apply_rate_limit()
@@ -109,7 +149,21 @@ def is_valid_stock_symbol(symbol: str) -> bool:
 
 @app.get("/search/{symbol}")
 async def search_stock(symbol: str):
-    """Search for a stock symbol and return basic information."""
+    """
+    Search for a stock symbol and return basic information.
+    
+    This endpoint searches for a stock symbol and returns basic information
+    about the stock, including its name, current price, market cap, and volume.
+    
+    Args:
+        symbol (str): The stock symbol to search for
+        
+    Returns:
+        dict: A dictionary containing basic stock information
+        
+    Raises:
+        HTTPException: If the symbol is not found or there's an error
+    """
     try:
         logger.info(f"Searching for stock: {symbol}")
         
@@ -128,20 +182,38 @@ async def search_stock(symbol: str):
                 logger.error(f"No valid info found for {symbol}")
                 raise HTTPException(status_code=404, detail=f"Stock symbol '{symbol}' not found or invalid")
             
-            # Get the company name
+            # Get the company info
             try:
                 info = stock.info
                 name = info.get('longName', info.get('shortName', symbol))
+                sector = info.get('sector', 'N/A')
+                industry = info.get('industry', 'N/A')
+                pe_ratio = info.get('trailingPE', None)
+                dividend_yield = info.get('dividendYield', None)
+                fifty_two_week_high = info.get('fiftyTwoWeekHigh', None)
+                fifty_two_week_low = info.get('fiftyTwoWeekLow', None)
             except Exception as e:
-                logger.warning(f"Could not get company name for {symbol}: {str(e)}")
+                logger.warning(f"Could not get company info for {symbol}: {str(e)}")
                 name = symbol
+                sector = 'N/A'
+                industry = 'N/A'
+                pe_ratio = None
+                dividend_yield = None
+                fifty_two_week_high = None
+                fifty_two_week_low = None
             
             result = {
                 "symbol": symbol,
                 "name": name,
                 "current_price": float(fast_info.last_price),
                 "market_cap": getattr(fast_info, 'market_cap', 0),
-                "volume": getattr(fast_info, 'last_volume', 0)
+                "volume": getattr(fast_info, 'last_volume', 0),
+                "pe_ratio": pe_ratio,
+                "dividend_yield": dividend_yield,
+                "sector": sector,
+                "industry": industry,
+                "fifty_two_week_high": fifty_two_week_high,
+                "fifty_two_week_low": fifty_two_week_low
             }
             logger.info(f"Stock search completed: {result}")
             return result
@@ -170,7 +242,25 @@ async def get_stock_analysis(
     end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
     period: Optional[str] = Query("1y", description="Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)")
 ):
-    """Get technical analysis data for a stock."""
+    """
+    Get technical analysis data for a stock.
+    
+    This endpoint fetches historical data for a stock and calculates various
+    technical indicators, including moving averages, RSI, MACD, and Bollinger Bands.
+    It also detects support and resistance levels.
+    
+    Args:
+        symbol (str): The stock symbol to analyze
+        start_date (str, optional): Start date in YYYY-MM-DD format
+        end_date (str, optional): End date in YYYY-MM-DD format
+        period (str, optional): Time period for the analysis
+        
+    Returns:
+        dict: A dictionary containing the technical analysis data
+        
+    Raises:
+        HTTPException: If there's an error fetching or processing the data
+    """
     try:
         logger.info(f"Starting analysis for {symbol} with period {period}, start_date: {start_date}, end_date: {end_date}")
         
@@ -296,6 +386,22 @@ async def get_stock_indicators(
 ) -> Dict[str, Any]:
     """
     Get technical indicators for a stock symbol.
+    
+    This endpoint calculates various technical indicators for a stock,
+    including RSI, MACD, and Death Cross signals. It provides both
+    the indicator values and their interpretations.
+    
+    Args:
+        symbol (str): The stock symbol to analyze
+        start_date (str, optional): Start date in YYYY-MM-DD format
+        end_date (str, optional): End date in YYYY-MM-DD format
+        period (str, optional): Time period for the analysis
+        
+    Returns:
+        Dict[str, Any]: A dictionary containing the technical indicators
+        
+    Raises:
+        HTTPException: If there's an error calculating the indicators
     """
     try:
         # Validate the stock symbol first
